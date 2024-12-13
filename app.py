@@ -1,25 +1,20 @@
-from langchain_huggingface import HuggingFaceEndpoint  # Import Hugging Face endpoint class
-from secret_api_keys import hugging_face_api_key # Import secret API key from separate file
-from langchain.prompts import PromptTemplate  # Import PromptTemplate class from langchain
+# set the huggingface api token as envinorment variable
 
-import os # Import the 'os' module for potential system interactions
-import re  # Import the 're' module for regular expressions
-import streamlit as st  # Import Streamlit for web app development
-
-# Set the Hugging Face Hub API token as an environment variable
+import os
+from secret_api_keys import huggingface_api_key
 os.environ['HUGGINGFACEHUB_API_TOKEN'] = huggingface_api_key
 
-# Define the Hugging Face model repository ID
-repo_id = "meta-llama/Meta-Llama-3-8B-Instruct"
-
-# Create a Hugging Face Endpoint instance
-llm = HuggingFaceEndpoint(
-    repo_id=repo_id,  # Specify the model repository ID
-    temperature=0.6,  # Set the temperature parameter (controls randomness)
-    token=hugging_face_api_key,  # Use the API key for authentication
+# importing the huggingface endpoint
+from langchain_huggingface import HuggingFaceEndpoint
+llm = HuggingFaceEndpoint (
+repo_id = 'meta-llama/Meta-Llama-3-8B-Instruct',
+token = huggingface_api_key,
+temperature = 0.6
 )
 
-# Define a PromptTemplate for title suggestions
+# define a promtTemplate for title suggestions
+from langchain.prompts import PromptTemplate # importing promptTemplate Class from Langchain
+
 prompt_Template_for_title_suggestion = PromptTemplate(
     input_variables = ['topic'], #specifying the input variables 
     template = #Defining the prompt template 
@@ -33,9 +28,8 @@ prompt_Template_for_title_suggestion = PromptTemplate(
     '''
 )
 
-title_chain = prompt_template_for_title_suggestion | llm # defining the title suggestion chain
-
 #define a template for blog generation
+
 prompt_Template_for_Blog = PromptTemplate(
     inputvariables = ['title,keywords,Blog_Length'],
     template = 
@@ -55,58 +49,58 @@ prompt_Template_for_Blog = PromptTemplate(
     '''
 )
 
-blog_chain = prompt_template_for_title | llm # Create a chain for title generation
+#creating the chains 
+title_suggestion_chain = prompt_Template_for_title_suggestion | llm
+blog_chain = prompt_Template_for_Blog | llm
 
 #Desiging the user interface
-st.title("AI Blog Content Assistant...🤖")
-st.header("Create High-Quality Blog Content Without Breaking the Bank")
+import streamlit as st
+st.title('AI BLOG Content Assistant....')
+st.subheader('Create High-Quality Blog Content without breaking the bank')
 
-st.subheader('Title Generation') # Display a subheader for the title generation section
-topic_expander = st.expander("Input the topic") # Create an expander for topic input
+#Feature - 1.Title Generation
+st.subheader('Title Generator')
+topic_expander = st.expander('Input the topic') 
 
-# Create a content block within the topic expander
 with topic_expander:
-    topic_name = st.text_input("", key="topic_name") # Get user input for the topic name
-    submit_topic = st.button('Submit topic') # Button for submitting the topic
+    topic_name = st.text_input('',key='topic_name')
+    button = st.button('submit the topic')
 
-if submit_topic: # Handle button click (submit_topic)
-    title_selection_text = '' # Initialize an empty string to store title suggestions
-    title_suggestion_str = title_suggestion_chain.invoke({topic_name}) # Generate titles using the title suggestion chain
-    for sentence in title_suggestion_str.split('\n'): 
-        title_selection_text += (sentence.strip() + '\n') # Clean up each sentence and add it to the selection text
-    st.text(title_selection_text) # Display the generated title suggestions
+    if button:
+        st.write(title_suggestion_chain.invoke({topic_name}))
 
+#Feature - 2. Blog Generation
 
-st.subheader('Blog Generation') # Display a subheader for the blog generation section
-title_expander = st.expander("Input the title") # Create an expander for title input
+st.subheader('Blog Generation')
+Blog_expander = st.expander('Input Blog Details')
 
+with Blog_expander:
+    Title_of_the_blog = st.text_input('Enter the title',key='title_name')
+    num_of_words = st.slider('Number of words',min_value=50,max_value=1000,step=50)
+    
+    if 'keywords' not in st.session_state: 
+        st.session_state['keywords'] = []  # Initialize as an empty list if not present
 
-with title_expander: # Create a content block within the title expander
-    title_of_the_blog = st.text_input("", key="title_of_the_blog") # Get user input for the blog title
-    num_of_words = st.slider('Number of Words', min_value=100, max_value=1000, step=50) # Slider for selecting the desired number of words
+keywords_input = st.text_input('Enter a Keyword: ')  # Input Field for adding keywords
+keywords_button = st.button('Add Keyword')  # Button for adding keywords
 
+if keywords_button: 
+    if keywords_input.strip():  # Ensure the input is not empty or only spaces
+        st.session_state['keywords'].append(keywords_input.strip())  # Add keyword to the list
+        keywords_input = ''  # Clear the keyword input field
 
-    if 'keywords' not in st.session_state: # Manage keyword list in session state
-        st.session_state['keywords'] = []  # Initialize empty list on first run
-    keyword_input = st.text_input("Enter a keyword:") # Input field for adding keywords
-    keyword_button = st.button("Add Keyword") # Button to add keyword to the list
-    if keyword_button: # Handle button click for adding keyword
-        st.session_state['keywords'].append(keyword_input) # Add the keyword to the session state list
-        st.session_state['keyword_input'] = "" # Clear the keyword input field after adding
-        for keyword in st.session_state['keywords']:  # Display the current list of keywords
-            # Inline styling for displaying keywords
-            st.write(f"<div style='display: inline-block; background-color: lightgray; padding: 5px; margin: 5px;'>{keyword}</div>", unsafe_allow_html=True)
+# Display the current list of keywords
+for keyword in st.session_state['keywords']:
+    st.write(f"<div style='display: inline-block; background-color: lightgray; padding: 5px; margin: 5px;'>{keyword}</div>", unsafe_allow_html=True)
 
-    # Button to submit the information for content generation
-    submit_title = st.button('Submit Info')
+button_blog = st.button('Submit The Info')
 
-if submit_title: # Handle button click for submitting information
-    formatted_keywords = []
-    for i in st.session_state['keywords']: # Process and format keywords
-        if len(i) > 0:
-            formatted_keywords.append(i.lstrip('0123456789 : ').strip('"').strip("'"))  
-    formatted_keywords = ', '.join(formatted_keywords)
+if button_blog:
+    formatted_words = []
+    for i in st.session_state['keywords']:
+        if i:  # Ensure `i` is not None or empty
+            formatted_words.append(i.lstrip('0123456789: ').strip('"').strip("'"))
+    formatted_words = ', '.join(formatted_words)
 
-    st.subheader(title_of_the_blog) # Display the blog title as a subheader
-    st.write(title_chain.invoke({'title': title_of_the_blog, 'keywords': formatted_keywords, 'blog_length':num_of_words})) # Generate and display the blog content using the title chain
-
+    st.subheader(Title_of_the_blog)
+    st.write(blog_chain.invoke({'title': Title_of_the_blog, 'keywords': formatted_words, 'Blog_Length': num_of_words}))
